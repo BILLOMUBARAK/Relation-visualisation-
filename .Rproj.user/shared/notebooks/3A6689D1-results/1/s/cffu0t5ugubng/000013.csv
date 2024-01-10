@@ -1,0 +1,5 @@
+"0","#Rangement des données "
+"0","#resultat de vote par candidat selon l'Etat"
+"0","result_vote_candidat<- result%>%"
+"0","  group_by(state)%>%"
+"0","  summarise(total1=sum(D),total2=sum(O),total3=sum(R),n=n())"

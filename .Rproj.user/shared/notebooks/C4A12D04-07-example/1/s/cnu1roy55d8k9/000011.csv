@@ -1,0 +1,8 @@
+"0",""
+"0","# Humidity in Atlanta"
+"0","humidity_plot <- ggplot(weather_atl, aes(x = time, y = humidity)) +"
+"0","  geom_line() +"
+"0","  geom_smooth() +"
+"0","  labs(x = NULL, y = ""Humidity"") +"
+"0","  theme_minimal()"
+"0","humidity_plot"

@@ -1,0 +1,5 @@
+"0","CR<-CR2+"
+"0","  # Ajouter un fond gris clair aux titres des facettes, sans bordures"
+"0","  theme(strip.background = element_rect(fill = ""grey90"", color = NA),"
+"0","        # Ajoutez une fine bordure grise autour de tous les tracés pour lier les titres des facettes"
+"0","        panel.border = element_rect(color = ""grey90"", fill = NA))"

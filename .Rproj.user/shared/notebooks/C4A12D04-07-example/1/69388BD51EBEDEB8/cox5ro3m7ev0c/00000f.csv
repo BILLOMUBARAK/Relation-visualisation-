@@ -1,0 +1,5 @@
+"0","# J'utilise select() ici car augment() renvoie des colonnes pour toutes les explications"
+"0","# variables, et la colonne .fitted avec la valeur prédite est à l'extrême droite"
+"0","# et est coupé"
+"0","augment(model_complex, newdata = newdata_example, se_fit = TRUE) %>% "
+"0","  select(.fitted, .se.fit)"

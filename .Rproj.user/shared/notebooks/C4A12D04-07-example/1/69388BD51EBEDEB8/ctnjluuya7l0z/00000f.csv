@@ -1,0 +1,4 @@
+"0","newdata_example <- tibble(humidity_scaled = 50, moonPhase_scaled = 50, "
+"0","                          precipProbability_scaled = 50, windSpeed = 1, "
+"0","                          pressure = 1000, cloudCover_scaled = 50)"
+"0","newdata_example"

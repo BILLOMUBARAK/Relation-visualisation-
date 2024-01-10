@@ -1,0 +1,4 @@
+"0","ggplot(weather_atl_summer,"
+"0","       aes(x = humidity_scaled, y = temperatureHigh)) +"
+"0","  geom_point() +"
+"0","  geom_smooth(method = ""lm"")"

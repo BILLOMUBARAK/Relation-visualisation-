@@ -1,0 +1,6 @@
+"0","ggplot(predicted_values, aes(x = windSpeed, y = .fitted)) +"
+"0","  geom_ribbon(aes(ymin = conf.low, ymax = conf.high),"
+"0","              fill = ""#BF3984"", alpha = 0.5) + "
+"0","  geom_line(size = 1, color = ""#BF3984"") +"
+"0","  labs(x = ""Wind speed (MPH)"", y = ""Predicted high temperature (F)"") +"
+"0","  theme_minimal()"

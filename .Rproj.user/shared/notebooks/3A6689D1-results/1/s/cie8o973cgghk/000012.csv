@@ -1,0 +1,5 @@
+"0","ggplot(result_coefs,aes(x = estimate, y = term)) +"
+"0","  geom_vline(xintercept = 0, color = ""red"", linetype = ""dotted"") +"
+"0","  geom_pointrange(aes(xmin = conf.low, xmax = conf.high)) + "
+"0","  labs(x = ""Coefficient estimate"", y = NULL) +"
+"0","  theme_minimal()"

@@ -1,0 +1,6 @@
+"0","result_predict <- lm(percent_dem ~ median_age + percent_white + per_capita_income + median_rent + state,"
+"0","                    data = result)"
+"0","result_coefs<- tidy(result_predict , conf.int = TRUE)  %>%"
+"0","filter(!str_detect(term, ""state""))%>% "
+"0"," filter(term != ""(Intercept)"") # Nous pouvons généralement ignorer le traçage de l'ordonnée                                           "
+"0","result_coefs"

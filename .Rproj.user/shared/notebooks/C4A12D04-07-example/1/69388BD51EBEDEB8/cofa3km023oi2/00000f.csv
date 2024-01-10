@@ -1,0 +1,7 @@
+"0","newdata_fancy <- expand_grid(windSpeed = seq(0, 8, 0.5),"
+"0","                             pressure = mean(weather_atl_summer$pressure),"
+"0","                             precipProbability_scaled = mean(weather_atl_summer$precipProbability_scaled),"
+"0","                             moonPhase_scaled = mean(weather_atl_summer$moonPhase_scaled),"
+"0","                             humidity_scaled = mean(weather_atl_summer$humidity_scaled),"
+"0","                             cloudCover_scaled = c(0, 33, 66, 100))"
+"0","newdata_fancy"

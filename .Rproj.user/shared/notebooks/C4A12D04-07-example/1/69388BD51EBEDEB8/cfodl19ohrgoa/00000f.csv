@@ -1,0 +1,6 @@
+"0","weather_atl_summer <- weather_atl %>% "
+"0","  filter(time >= ""2019-05-01"", time <= ""2019-09-30"") %>% "
+"0","  mutate(humidity_scaled = humidity * 100,"
+"0","         moonPhase_scaled = moonPhase * 100,"
+"0","         precipProbability_scaled = precipProbability * 100,"
+"0","         cloudCover_scaled = cloudCover * 100)"

@@ -1,0 +1,4 @@
+"0","my_predictions <- predictions("
+"0","result_predict,"
+"0","newdata = datagrid(median_rent = seq(9000, 60000, by = 100),"
+"0","state = ""Georgia""))"

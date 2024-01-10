@@ -1,0 +1,3 @@
+"0","#nous enlevons tous les na "
+"0","result_vote_candidat <- na.omit(result_vote_candidat)"
+"0","result_vote_candidat"

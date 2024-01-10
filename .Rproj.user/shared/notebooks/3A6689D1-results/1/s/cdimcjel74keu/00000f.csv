@@ -1,0 +1,4 @@
+"0","library(tidyverse)  "
+"0","library(patchwork)  # Pour combiner des graphiques ggplots"
+"0","library(GGally)     # pour les matrices de scatterplot "
+"0","library(broom)      # Pour convertir des objets modèles en jeu de données"

@@ -1,0 +1,9 @@
+"0","slopes_wild <- marginaleffects("
+"0","  model_wild, "
+"0","  newdata = datagrid(windSpeed = seq(0, 6, by = 0.1),"
+"0","                     cloudCover_scaled = c(0, 33, 66, 100)), "
+"0","  variables = ""windSpeed"") %>%"
+"0","  mutate(cloudCover_scaled = factor(cloudCover_scaled))"
+"2","Error in dots_list(..., .preserve_empty = TRUE, .homonyms = .homonyms) : 
+  object 'model_wild' not found
+"

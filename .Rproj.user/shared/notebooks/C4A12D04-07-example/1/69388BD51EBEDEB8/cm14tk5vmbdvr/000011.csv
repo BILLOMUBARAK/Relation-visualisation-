@@ -1,0 +1,4 @@
+"0","model_simple <- lm(temperatureHigh ~ humidity_scaled, "
+"0","                   data = weather_atl_summer)"
+"0",""
+"0","tidy(model_simple, conf.int = TRUE)"

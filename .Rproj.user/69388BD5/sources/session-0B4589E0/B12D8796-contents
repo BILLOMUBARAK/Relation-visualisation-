@@ -1,0 +1,612 @@
+---
+title: "Relations"
+output:
+  word_document: default
+  html_document: default
+  pdf_document: default
+---
+
+Pour cet exemple, nous allons à nouveau utiliser les données météorologiques historiques de [Dark Sky](https://darksky.net/forecast/33.7546,-84.39/us12/en) sur la vitesse du vent et les tendances de température pour le centre-ville d'Atlanta ([ spécifiquement `33.754557, -84.390009`](https://www.google.com/maps/place/33°45'16.4"N+84°23'24.0"W/@33.754557,-84.3921977,17z/)) dans 2019. J'ai téléchargé ces données à l'aide de l'API de Dark Sky (about-to-be-retired-because-they-were-bought-by-Apple) en utilisant le [ **darksky** package](https://github.com/ hrbrmstr/darksky).
+
+Si vous souhaitez suivre cet exemple, vous pouvez télécharger les données dans Moodle
+- /data/atl-weather-2019.csv
+
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.width = 6, fig.height = 3.6, fig.align = "center", collapse = TRUE)
+set.seed(1234)
+options("digits" = 2, "width" = 150)
+```
+
+### Charger et nettoyer les données
+
+Tout d'abord, nous chargeons les libraries que nous utiliserons :
+
+```{r load-libraries, message=FALSE, warning=FALSE}
+library(tidyverse)  
+library(patchwork)  # Pour combiner des graphiques ggplots
+library(GGally)     # pour les matrices de scatterplot 
+library(broom)      # Pour convertir des objets modèles en jeu de données
+```
+
+Ensuite, nous chargeons les données avec `read_csv()`. Ici, je suppose que le fichier CSV réside dans un sous-dossier de mon projet nommé "data":
+
+```{r load-data-fake, eval=FALSE}
+weather_atl <- read_csv("data/atl-weather-2019.csv")
+```
+
+```{r load-data-real, include=FALSE, message=FALSE}
+weather_atl <- read_csv(here::here("static", "data", "atl-weather-2019.csv"))
+```
+
+### Double axe y légal
+
+Il est bon (et souvent utile !) d'utiliser deux axes y si les deux échelles différentes mesurent la même chose, comme les nombres et les pourcentages, Fahrenheit et Celsius, les livres et les kilogrammes, les pouces et les centimètres, etc.
+
+Pour ce faire, vous devez ajouter un argument (`sec.axis`) à `scale_y_continuous()` pour lui dire d'utiliser un deuxième axe. Cet argument `sec.axis` prend une fonction `sec_axis()` qui indique à ggplot comment transformer l'échelle. Vous devez spécifier une formule ou une fonction qui définit la manière dont l'axe d'origine est transformé. Cette formule utilise une syntaxe spéciale. Il doit commencer par un `~`, qui indique qu'il s'agit d'une fonction, et il doit utiliser `.` pour remplacer la valeur d'origine dans l'axe d'origine.
+
+Puisque l'équation pour convertir Fahrenheit en Celsius est la suivante…
+
+$$
+\text{C} = (32 - \text{F}) \times -\frac{5}{9}
+$$
+
+… nous pouvons le spécifier avec un code comme celui-ci (où `.` représente la valeur Fahrenheit):
+
+```text
+~ (32 - .) * -5 / 9
+```
+ 
+Voici un graphique des températures maximales quotidiennes à Atlanta tout au long de 2019, avec un deuxième axe :
+
+```{r atl-weather-dual-axes}
+ggplot(weather_atl, aes(x = time, y = temperatureHigh)) +
+  geom_line() +
+  scale_y_continuous(sec.axis = sec_axis(trans = ~ (32 - .) * -5/9,
+                                         name = "Celsius")) +
+  labs(x = NULL, y = "Fahrenheit") +
+  theme_minimal()
+```
+
+Pour s'amuser, on pourrait aussi le convertir en Kelvin, qui utilise cette formule :
+
+$$
+\text{K} = (\text{F} - 32) \times \frac{5}{9} + 273.15
+$$
+
+```{r atl-weather-dual-axes-kelvin}
+ggplot(weather_atl, aes(x = time, y = temperatureHigh)) +
+  geom_line() +
+  scale_y_continuous(sec.axis = sec_axis(trans = ~ (. - 32) * 5/9 + 273.15,
+                                         name = "Kelvin")) +
+  labs(x = NULL, y = "Fahrenheit") +
+  theme_minimal()
+```
+
+### Combiner des graphiques
+
+Une bonne alternative à l'utilisation de deux axes y consiste à utiliser deux graphiques à la place. Le [package **patchwork**](https://github.com/thomasp85/patchwork) rend cela *vraiment* facile à faire avec R. Il existe d'autres packages similaires qui le font, comme **cowplot** et **gridExtra**, mais j'ai trouvé que **patchwork** est le plus facile à utiliser *et* il aligne en fait les différents éléments des graphiques comme les lignes d'axe et les légendes (yay alignement dans CRAP !). La [documentation pour **patchwork**](https://patchwork.data-imaginist.com/articles/guides/assembly.html) est vraiment géniale et pleine d'exemples - vous devriez la consulter pour voir toutes les choses que vous peut faire avec!
+
+Pour utiliser **patchwork**, nous devons (1) enregistrer nos graphqiues en tant qu'objets et (2) les ajouter avec `+`.
+
+Par exemple, y a-t-il une relation entre la température et l'humidité à Atlanta ? Nous pouvons tracer les deux :
+
+```{r create-temp-humid-plots, message=FALSE}
+# Temperature in Atlanta
+temp_plot <- ggplot(weather_atl, aes(x = time, y = temperatureHigh)) +
+  geom_line() +
+  geom_smooth() +
+  scale_y_continuous(sec.axis = sec_axis(trans = ~ (32 - .) * -5/9,
+                                         name = "Celsius")) +
+  labs(x = NULL, y = "Fahrenheit") +
+  theme_minimal()
+temp_plot
+
+# Humidity in Atlanta
+humidity_plot <- ggplot(weather_atl, aes(x = time, y = humidity)) +
+  geom_line() +
+  geom_smooth() +
+  labs(x = NULL, y = "Humidity") +
+  theme_minimal()
+humidity_plot
+```
+
+Pour le moment, ce sont deux tracés distincts, mais nous pouvons les combiner avec `+` si nous chargeons **patchwork** :
+
+```{r patchwork-first, message=FALSE}
+library(patchwork)
+
+temp_plot + humidity_plot
+```
+
+Par défaut, **patchwork** les placera côte à côte, mais nous pouvons changer cela avec la fonction `plot_layout()` :
+
+```{r patchwork-vertical, message=FALSE}
+temp_plot + humidity_plot +
+  plot_layout(ncol = 1)
+```
+
+Nous pouvons aussi jouer avec d'autres arguments dans `plot_layout()`. Si nous voulons agrandir le tracé de température et réduire la section d'humidité, nous pouvons spécifier les proportions des hauteurs de tracé. Ici, le tracé de température correspond à 70 % de la hauteur et le tracé d'humidité à 30 % :
+
+```{r patchwork-vertical-resized, message=FALSE}
+temp_plot + humidity_plot +
+  plot_layout(ncol = 1, heights = c(0.7, 0.3))
+```
+
+### Matrices de nuages de points
+
+Nous pouvons visualiser les corrélations entre les paires de variables avec la fonction `ggpairs()` dans le package **GGally**. Par exemple, quelle est la corrélation entre les températures élevées et basses, l'humidité, la vitesse du vent et les risques de précipitations ? Nous créons d'abord un ensemble de données plus petit avec uniquement ces colonnes, puis nous alimentons cet ensemble de données dans `ggpairs()` pour voir toutes les informations de corrélation :
+
+```{r ggpairs, fig.width=9, fig.height=6}
+library(GGally)
+
+weather_correlations <- weather_atl %>% 
+  select(temperatureHigh, temperatureLow, humidity, windSpeed, precipProbability)
+
+ggpairs(weather_correlations)
+```
+
+Il semble que les températures élevées et basses soient extrêmement fortement corrélées positivement (r = 0,92). La vitesse du vent et la température sont modérément corrélées négativement, les basses températures ayant une corrélation négative plus forte (r = -0,45). Il n'y a aucune corrélation entre les basses températures et la probabilité de précipitations (r = -0,03) ou l'humidité et les températures élevées (r = -0,03).
+
+Même si `ggpairs()` n'utilise pas la syntaxe standard `ggplot(...) + geom_quelquechose()` que nous connaissons, elle le fait en arrière-plan, vous pouvez donc y ajouter des couches ggplot régulières :
+
+```{r ggpairs-layers, eval=FALSE}
+ggpairs(weather_correlations) +
+  labs(title = "Correlations!") +
+  theme_dark()
+```
+
+
+### Corrélogrammes
+
+Les matrices de nuages de points contiennent généralement beaucoup trop d'informations pour être utilisées dans des publications. Je les utilise lorsque je fais ma propre analyse juste pour voir comment différentes variables sont liées, mais je les peaufine rarement. Dans les lectures de cette semaine, Claus Wilke a montré un type de graphique appelé [*correlogram*](https://clauswilke.com/dataviz/visualizing-associations.html#associations-correlograms) qui *est* plus approprié pour la publication.
+
+Il s'agit essentiellement de cartes thermiques des différents coefficients de corrélation. Pour les créer avec ggplot, nous devons effectuer un peu de traitement de données supplémentaire, principalement pour remodeler les données dans un format long et ordonné que nous pouvons tracer. Voici comment.
+
+Nous devons d'abord construire une matrice de corrélation des principales variables qui nous intéressent. Habituellement, la fonction `cor()` dans R prend deux arguments - x et y - et renverra une seule valeur de corrélation. Si vous alimentez une base de données dans `cor()` cependant, il calculera la corrélation entre chaque paire de colonnes
+```{r create-cor-mat, width=150}
+# Créer une matrice de corrélation
+things_to_correlate <- weather_atl %>% 
+  select(temperatureHigh, temperatureLow, humidity, windSpeed, precipProbability) %>% 
+  cor()
+
+things_to_correlate
+```
+
+Les deux moitiés de cette matrice (divisées le long de la ligne diagonale) sont identiques, nous pouvons donc supprimer le triangle inférieur avec ce code (qui définira toutes les cellules du triangle inférieur sur `NA`):
+
+```{r remove-lower-tri}
+# Débarrassez-vous du triangle inférieur
+things_to_correlate[lower.tri(things_to_correlate)] <- NA
+things_to_correlate
+```
+
+Enfin, pour tracer cela, les données doivent être dans un format ordonné (ou long). Ici, nous convertissons la matrice `things_to_correlate` en une base de données, ajoutons une colonne pour les noms de ligne, prenons toutes les colonnes et les plaçons dans une seule colonne nommée `measure1`, et prenons tous les nombres de corrélation et les plaçons dans une colonne nommée `cor` À la fin, nous nous assurons que les variables de mesure sont ordonnées par leur ordre d'apparition (sinon elles tracent par ordre alphabétique et ne forment pas un triangle)
+
+```{r cor-tidy}
+things_to_correlate_long <- things_to_correlate %>% 
+  # Convertir matrice en base de donnée
+  as.data.frame() %>% 
+# Les matrices ont des noms de colonne qui ne sont pas convertis en colonnes lors de l'utilisation
+  # as.data.frame(), donc cela ajoute ces noms en tant que colonne
+  rownames_to_column("measure2") %>% 
+# Rendez-le long. Prenez toutes les colonnes sauf measure2 et mettez leurs noms dans
+  # une colonne nommée measure1 et leurs valeurs dans une colonne nommée cor
+  pivot_longer(cols = -measure2,
+               names_to = "measure1",
+               values_to = "cor") %>% 
+  # Créer une nouvelle colonne avec la version arrondie de la valeur de corrélation
+  mutate(nice_cor = round(cor, 2)) %>% 
+  # Supprimer les lignes où les deux mesures sont identiques (comme la corrélation
+  # entre humidité et humidité)
+  filter(measure2 != measure1) %>%
+  # Débarrassez-vous du triangle vide
+  filter(!is.na(cor)) %>% 
+  # Mettez ces catégories dans l'ordre
+  mutate(measure1 = fct_inorder(measure1),
+         measure2 = fct_inorder(measure2))
+
+things_to_correlate_long
+```
+
+Ouf Avec les données toutes rangées comme ça, nous pouvons faire un corrélogramme avec une carte thermique. Ici nous manipulons un peu l'échelle de remplissage pour qu'elle diverge avec trois couleurs : une valeur élevée, une valeur médiane et une valeur faible.
+
+```{r cor-heatmap, fig.width=5, fig.height=5}
+ggplot(things_to_correlate_long, 
+       aes(x = measure2, y = measure1, fill = cor)) +
+  geom_tile() +
+  geom_text(aes(label = nice_cor)) +
+  scale_fill_gradient2(low = "#E16462", mid = "white", high = "#0D0887",
+                       limits = c(-1, 1)) +
+  labs(x = NULL, y = NULL) +
+  coord_equal() +
+  theme_minimal() +
+  theme(panel.grid = element_blank())
+```
+
+Au lieu d'utiliser une carte thermique, nous pouvons également utiliser des points, qui encodent les informations de corrélation à la fois en couleur *et* en taille. Pour ce faire, nous avons juste besoin de changer `geom_tile()` en `geom_point()` et de définir le mappage `size = cor` :
+
+```{r cor-points, fig.width=5, fig.height=5}
+ggplot(things_to_correlate_long, 
+       aes(x = measure2, y = measure1, color = cor)) +
+  # Taille par la valeur absolue de sorte que -0,7 et 0,7 soient de la même taille
+  geom_point(aes(size = abs(cor))) +
+  scale_color_gradient2(low = "#E16462", mid = "white", high = "#0D0887",
+                        limits = c(-1, 1)) +
+  scale_size_area(max_size = 15, limits = c(-1, 1), guide = "none") +
+  labs(x = NULL, y = NULL) +
+  coord_equal() +
+  theme_minimal() +
+  theme(panel.grid = element_blank())
+```
+
+
+### Régression simple
+
+Nous pouvons également visualiser les relations entre les variables en utilisant la régression. La régression simple est facile à visualiser, puisque vous ne travaillez qu'avec un X et un Y. Par exemple, quelle est la relation entre l'humidité et les températures élevées pendant l'été ?
+
+Tout d'abord, filtrons les données pour ne regarder que l'été. Nous ajoutons également une colonne pour augmenter la valeur d'humidité - pour le moment, c'est sur une échelle de 0 à 1 (pour les pourcentages), mais lors de l'interprétation de la régression, nous parlons d'augmentations en unités entières, nous parlerions donc de passer de 0 % d'humidité à 100% d'humidité, ce qui n'est pas utile, donc à la place, nous multiplions tout par 100 pour pouvoir parler de passer de 50% d'humidité à 51% d'humidité. Nous augmentons également l'échelle de quelques autres variables que nous utiliserons plus tard dans le modèle plus large.
+
+```{r subset-summer}
+weather_atl_summer <- weather_atl %>% 
+  filter(time >= "2019-05-01", time <= "2019-09-30") %>% 
+  mutate(humidity_scaled = humidity * 100,
+         moonPhase_scaled = moonPhase * 100,
+         precipProbability_scaled = precipProbability * 100,
+         cloudCover_scaled = cloudCover * 100)
+```
+
+Ensuite, nous pouvons construire un modèle de régression simple :
+
+```{r simple-model, message=FALSE}
+model_simple <- lm(temperatureHigh ~ humidity_scaled, 
+                   data = weather_atl_summer)
+
+tidy(model_simple, conf.int = TRUE)
+```
+
+On peut interpréter ces coefficients comme suit :
+
+- L'ordonnée à l'origine montre que la température moyenne lorsqu'il y a 0% d'humidité est de 104°. Cependant, il n'y a pas de jours avec 0 % d'humidité, nous pouvons donc ignorer l'ordonnée à l'origine - c'est vraiment juste ici pour que nous puissions tracer la ligne.
+- Le coefficient pour "humidity_scaled" montre qu'une augmentation de 1 % de l'humidité est associée à une diminution de la température de 0,241 ° en moyenne.
+
+La visualisation de ce modèle est simple, puisqu'il n'y a que deux variables :
+
+```{r plot-simple-model, warning=FALSE}
+ggplot(weather_atl_summer,
+       aes(x = humidity_scaled, y = temperatureHigh)) +
+  geom_point() +
+  geom_smooth(method = "lm")
+```
+
+Et en effet, à mesure que l'humidité augmente, les températures diminuent.
+
+### Diagrammes de coefficients
+
+Mais si nous utilisons plusieurs variables dans le modèle, il devient très difficile de visualiser les résultats car nous travaillons avec plusieurs dimensions. Au lieu de cela, nous pouvons utiliser des diagrammes de coefficients pour voir les coefficients individuels dans le modèle.
+
+Commençons par construire un modèle plus complexe :
+
+```{r complex-model}
+model_complex <- lm(temperatureHigh ~ humidity_scaled + moonPhase_scaled + 
+                      precipProbability_scaled + windSpeed + pressure + cloudCover_scaled,
+                    data = weather_atl_summer)
+tidy(model_complex, conf.int = TRUE)
+```
+
+On peut interpréter ces coefficients comme suit :
+
+- En tenant tout le reste constant, une augmentation de 1 % de l'humidité est associée à une diminution de 0,11 ° de la température élevée, en moyenne, mais l'effet n'est pas statistiquement significatif
+- En gardant tout le reste constant, une augmentation de 1 % de la visibilité de la lune est associée à une augmentation de 0,01 ° de la température élevée, en moyenne, et l'effet n'est pas statistiquement significatif
+- En tenant tout le reste constant, une augmentation de 1 % de la probabilité de précipitation est associée à une augmentation de 0,04 ° de la température maximale, en moyenne, et l'effet n'est pas statistiquement significatif
+- En gardant tout le reste constant, une augmentation de 1 mph de la vitesse du vent est associée à une diminution de 1,8° de la température élevée, en moyenne, et l'effet * est * statistiquement significatif
+- En tenant tout le reste constant, une augmentation de 1 unité de la pression barométrique est associée à une diminution de 0,15° de la température élevée, en moyenne, et l'effet n'est pas statistiquement significatif
+- En tenant tout le reste constant, une augmentation de 1 % de la couverture nuageuse est associée à une diminution de 0,01 ° de la température maximale, en moyenne, et l'effet *est* statistiquement significatif
+- L'interception est assez inutile. Il montre que la température prévue sera de 262 ° lorsque l'humidité est de 0 %, la lune est invisible, il n'y a aucune chance de précipitations, pas de vent, pas de pression barométrique et pas de couverture nuageuse. Ouais.
+
+Pour tracer toutes ces choses à la fois, nous allons stocker les résultats de `tidy(model_complex)` sous forme de jeu de données, supprimer l'ordonnée à l'origine inutile et les tracer à l'aide de `geom_pointrange()` :
+
+```{r coef-plot}
+model_tidied <- tidy(model_complex, conf.int = TRUE) %>% 
+  filter(term != "(Intercept)")
+
+ggplot(model_tidied,
+       aes(x = estimate, y = term)) +
+  geom_vline(xintercept = 0, color = "red", linetype = "dotted") +
+  geom_pointrange(aes(xmin = conf.low, xmax = conf.high)) + 
+  labs(x = "Coefficient estimate", y = NULL) +
+  theme_minimal()
+```
+
+Soigné! Nous pouvons maintenant voir à quel point ces différents coefficients sont importants et à quel point ils sont proches de zéro. La vitesse du vent a un effet significatif sur la température. Les autres sont tous très proches de zéro.
+
+### Graphiques des effets marginaux
+
+ [Le **marginaleffects** R package](https://vincentarelbundock.github.io/marginaleffects/) rend vraiment agréable et facile d'obtenir les valeurs prédites d'un résultat tout en maintenant tout le reste constant - vous n'avez pas besoin de saisir les valeurs manuellement plus comme cette section le montre.
+
+Au lieu de simplement regarder les coefficients, nous pouvons également voir l'effet du déplacement de différentes variables de haut en bas, comme des curseurs et des commutateurs. N'oubliez pas que les coefficients de régression nous permettent de construire des formules mathématiques réelles qui prédisent la valeur de Y. Les coefficients de `model_compex` donnent la grande équation laide poilue suivante :
+
+$$
+\begin{aligned}
+\hat{\text{High temperature}} =& 262 - 0.11 \times \text{humidity_scaled } \\
+& + 0.01 \times \text{moonPhase_scaled } + 0.04 \times \text{precipProbability_scaled } \\
+& - 1.78 \times \text{windSpeed} - 0.16 \times \text{pressure} - 0.095 \times \text{cloudCover_scaled}
+\end{aligned}
+$$
+
+Si nous insérons des valeurs pour chacune des variables explicatives, nous pouvons obtenir la valeur prédite de haute température, ou $\hat{y}$.
+
+La fonction `augment()` de la bibliothèque **broom** nous permet de prendre un jeu de données de valeurs de variables explicatives, de les insérer dans l'équation du modèle et d'obtenir des prédictions. Par exemple, définissons chacune des variables sur des valeurs arbitraires (50 % pour l'humidité, la phase de la lune, les risques de pluie et la couverture nuageuse ; 1 000 pour la pression et 1 mph pour la vitesse du vent).
+
+```{r newdata-example}
+newdata_example <- tibble(humidity_scaled = 50, moonPhase_scaled = 50, 
+                          precipProbability_scaled = 50, windSpeed = 1, 
+                          pressure = 1000, cloudCover_scaled = 50)
+newdata_example
+```
+
+Nous pouvons insérer ces valeurs dans le modèle avec `augment()`. L'argument `se_fit` nous donne des erreurs standard pour chaque prédiction :
+
+```{r augment-newdata-example}
+# J'utilise select() ici car augment() renvoie des colonnes pour toutes les explications
+# variables, et la colonne .fitted avec la valeur prédite est à l'extrême droite
+# et est coupé
+augment(model_complex, newdata = newdata_example, se_fit = TRUE) %>% 
+  select(.fitted, .se.fit)
+```
+
+Compte tenu de ces conditions météorologiques, la température maximale prévue est de 96,2°. Maintenant, vous êtes un météorologue!
+
+Nous pouvons suivre le même schéma pour montrer comment la température prévue change lorsque des variables spécifiques changent sur toute une plage. Ici, nous créons une base de données des vitesses de vent possibles et gardons toutes les autres variables explicatives à leur moyenne :
+
+```{r newdata-windspeed}
+newdata <- tibble(windSpeed = seq(0, 8, 0.5),
+                  pressure = mean(weather_atl_summer$pressure),
+                  precipProbability_scaled = mean(weather_atl_summer$precipProbability_scaled),
+                  moonPhase_scaled = mean(weather_atl_summer$moonPhase_scaled),
+                  humidity_scaled = mean(weather_atl_summer$humidity_scaled),
+                  cloudCover_scaled = mean(weather_atl_summer$cloudCover_scaled))
+newdata
+```
+
+Si nous alimentons cette base de données volumineuses dans `augment()`, nous pouvons obtenir la température élevée prévue pour chaque ligne. Nous pouvons également utiliser la colonne ".se.fit" pour calculer l'intervalle de confiance à 95 % pour chaque valeur prédite. Nous prenons l'erreur type, la multiplions par -1,96 et 1,96 (ou le quantile de la distribution normale à 2,5 % et 97,5 %) et ajoutons cette valeur à l'estimation.
+
+```{r predicted-values-windspeed}
+predicted_values <- augment(model_complex, 
+                            newdata = newdata,
+                            se_fit = TRUE) %>% 
+  mutate(conf.low = .fitted + (-1.96 * .se.fit),
+         conf.high = .fitted + (1.96 * .se.fit))
+
+predicted_values %>% 
+  select(windSpeed, .fitted, .se.fit, conf.low, conf.high) %>% 
+  head()
+```
+
+Cool! En regardant simplement les données du tableau, nous pouvons voir que la température prévue chute à mesure que la vitesse du vent augmente. Nous pouvons tracer ceci pour visualiser l'effet :
+
+```{r mfx-plot-simple}
+ggplot(predicted_values, aes(x = windSpeed, y = .fitted)) +
+  geom_ribbon(aes(ymin = conf.low, ymax = conf.high),
+              fill = "#BF3984", alpha = 0.5) + 
+  geom_line(size = 1, color = "#BF3984") +
+  labs(x = "Wind speed (MPH)", y = "Predicted high temperature (F)") +
+  theme_minimal()
+```
+
+Nous avons simplement manipulé l'un des coefficients du modèle et maintenu tout le reste à sa moyenne. Nous pouvons également manipuler plusieurs variables et les coder toutes sur le graphique. Par exemple, quel est l'effet de la vitesse du vent *et* de la couverture nuageuse sur la température ?
+
+Nous suivrons le même processus, mais en faisant varier à la fois `windSpeed` et `cloudCover_scaled`. Au lieu d'utiliser `tibble()`, nous utilisons `exapnd_grid()`, qui crée chaque combinaison des variables que nous spécifions. Au lieu de faire varier la couverture nuageuse par toutes les valeurs possibles (comme de 0 à 100), nous choisirons quatre types de couverture nuageuse possibles : 0 %, 33 %, 66 % et 100 %. Tout le reste sera à sa moyenne.
+
+```{r newdata-fancy}
+newdata_fancy <- expand_grid(windSpeed = seq(0, 8, 0.5),
+                             pressure = mean(weather_atl_summer$pressure),
+                             precipProbability_scaled = mean(weather_atl_summer$precipProbability_scaled),
+                             moonPhase_scaled = mean(weather_atl_summer$moonPhase_scaled),
+                             humidity_scaled = mean(weather_atl_summer$humidity_scaled),
+                             cloudCover_scaled = c(0, 33, 66, 100))
+newdata_fancy
+```
+
+Notez maintenant que `windSpeed` se répète quatre fois (0, 0, 0, 0, 0.5, 0.5, etc.), puisqu'il y a quatre valeurs possibles pour `cloudCover_scaled` (0, 33, 66, 100).
+
+Nous pouvons tracer cela maintenant, comme avant, avec la vitesse du vent sur l'axe des x, la température prévue sur l'axe des y, et coloré et facetté par la couverture nuageuse :
+
+```{r mfx-complex, fig.width=9, fig.height=4}
+predicted_values_fancy <- augment(model_complex, 
+                                  newdata = newdata_fancy, 
+                                  se_fit = TRUE) %>% 
+  mutate(conf.low = .fitted + (-1.96 * .se.fit),
+         conf.high = .fitted + (1.96 * .se.fit)) %>% 
+  # Faire de la couverture nuageuse une variable catégorique afin que nous puissions la facetter
+  mutate(cloudCover_scaled = factor(cloudCover_scaled))
+
+ggplot(predicted_values_fancy, aes(x = windSpeed, y = .fitted)) +
+  geom_ribbon(aes(ymin = conf.low, ymax = conf.high, fill = cloudCover_scaled),
+              alpha = 0.5) + 
+  geom_line(aes(color = cloudCover_scaled), size = 1) +
+  labs(x = "Wind speed (MPH)", y = "Predicted high temperature (F)") +
+  theme_minimal() +
+  guides(fill = "none", color = "none") +
+  facet_wrap(vars(cloudCover_scaled), nrow = 1)
+```
+
+C'est tellement chouette ! Les températures baissent légèrement à mesure que la couverture nuageuse augmente. Si nous voulions améliorer le modèle, nous ajouterions un terme d'interaction entre la couverture nuageuse et la vitesse du vent afin que chaque ligne ait une pente différente en plus d'une interception différente, mais cela dépasse le cadre de cette classe.
+
+
+### Valeurs prédites et effets marginaux en 2022
+
+Au lieu d'utiliser `expand_grid()` et `augment()` pour créer et brancher un mini jeu de données de variables pour monter et descendre, nous pouvons utiliser [le package **marginaleffects**](https://vincentarelbundock.github .io/marginaleffects/) pour vous simplifier la vie !
+
+Rappelez-vous ci-dessus où nous voulions voir l'effet de la vitesse du vent sur la température tout en maintenant constantes toutes les autres variables du modèle. Nous avons dû créer un petit jeu de données (`newdata`) avec des colonnes pour chacune des variables du modèle, avec tout sauf `windSpeed` réglé sur leurs moyennes. Nous avons ensuite inséré `newdata` dans le modèle avec `augment()` et calculé l'intervalle de confiance autour de chaque valeur prédite à l'aide de `mutate()`. C'est un processus assez compliqué, mais ça marche :
+
+```{r manual-predicted-values}
+# modele
+model_complex <- lm(temperatureHigh ~ humidity_scaled + moonPhase_scaled + 
+                      precipProbability_scaled + windSpeed + pressure + cloudCover_scaled,
+                    data = weather_atl_summer)
+
+# mini jeu de donnée
+newdata <- tibble(windSpeed = seq(0, 8, 0.5),
+                  pressure = mean(weather_atl_summer$pressure),
+                  precipProbability_scaled = mean(weather_atl_summer$precipProbability_scaled),
+                  moonPhase_scaled = mean(weather_atl_summer$moonPhase_scaled),
+                  humidity_scaled = mean(weather_atl_summer$humidity_scaled),
+                  cloudCover_scaled = mean(weather_atl_summer$cloudCover_scaled))
+
+# On met le mini jeu de donnée dans le modele
+predicted_values <- augment(model_complex, 
+                            newdata = newdata,
+                            se_fit = TRUE) %>% 
+  mutate(conf.low = .fitted + (-1.96 * .se.fit),
+         conf.high = .fitted + (1.96 * .se.fit))
+
+#  On regarde les valeurs prédites
+predicted_values %>% 
+  select(windSpeed, .fitted, .se.fit, conf.low, conf.high) %>% 
+  head()
+```
+
+Le package **marginaleffects** rend cela beaucoup plus facile. Nous pouvons utiliser la fonction `predictions()` pour générer, euh, des prédictions. Nous devons toujours lui fournir un ensemble de données plus petit de variables à manipuler, mais si nous utilisons la fonction `datagrid()`, nous n'avons *qu'à spécifier les variables que nous voulons déplacer*. Il utilisera automatiquement les moyennes ou les valeurs typiques pour toutes les autres variables du modèle. Il créera également automatiquement des intervalles de confiance pour chaque prédiction - pas besoin du calcul `mutate(conf.low = .fitted + (-1.96 * .se.fit))` que nous avons fait précédemment.
+
+```{r calc-preds-easy}
+#library(marginaleffects)
+
+# Calculer des prévisions sur une plage de vitesse du vent
+predicted_values_easy <- predictions(model_complex, 
+                                     newdata = datagrid(windSpeed = seq(0, 8, 0.5)))
+
+# On regarde les valeurs prédites
+predicted_values_easy %>%
+  select(windSpeed, predicted, std.error, conf.low, conf.high)
+```
+
+Nous pouvons ensuite tracer cela très facilement aussi :
+
+```{r mfx-plot-easy-pred}
+ggplot(predicted_values_easy, aes(x = windSpeed, y = fitted)) +
+  geom_ribbon(aes(ymin = conf.low, ymax = conf.high),
+              fill = "#BF3984", alpha = 0.5) + 
+  geom_line(size = 1, color = "#BF3984") +
+  labs(x = "Wind speed (MPH)", y = "Predicted high temperature (F)") +
+  theme_minimal()
+```
+
+Cela fonctionne également lorsque vous déplacez plusieurs variables en même temps. Plus tôt, nous avons utilisé `expand_grid()` pour créer un mini jeu de données de différentes valeurs pour `windSpeed` et `cloudCover`, tout en maintenant toutes les autres variables à leurs moyennes. Voici comment procéder avec la fonction `predictions()` beaucoup plus simple :
+
+```{r mfx-plot-complex-pred, fig.width=9, fig.height=4}
+predicted_values_fancy_easy <- predictions(
+  model_complex,
+  newdata = datagrid(windSpeed = seq(0, 8, 0.5),
+                     cloudCover_scaled = c(0, 33, 66, 100))) %>%
+# Faire de la couverture nuageuse une variable catégorique afin que nous puissions la facetter
+  mutate(cloudCover_scaled = factor(cloudCover_scaled))
+
+ggplot(predicted_values_fancy_easy, aes(x = windSpeed, y = predicted)) +
+  geom_ribbon(aes(ymin = conf.low, ymax = conf.high, fill = cloudCover_scaled),
+              alpha = 0.5) + 
+  geom_line(aes(color = cloudCover_scaled), size = 1) +
+  labs(x = "Wind speed (MPH)", y = "Predicted high temperature (F)") +
+  theme_minimal() +
+  guides(fill = "none", color = "none") +
+  facet_wrap(vars(cloudCover_scaled), nrow = 1)
+```
+
+C'est ça! `predictions()` rend cela si facile !
+
+Si nous sommes intéressés par les pentes (ou les effets marginaux) de ces lignes, nous pouvons également les calculer très facilement avec la fonction `marginaleffects()`. Par exemple, voici les températures prévues en manipulant simplement la vitesse du vent :
+
+```{r mfx-plot-easy-pred-again}
+ggplot(predicted_values_easy, aes(x = windSpeed, y = predicted)) +
+  geom_ribbon(aes(ymin = conf.low, ymax = conf.high),
+              fill = "#BF3984", alpha = 0.5) + 
+  geom_line(size = 1, color = "#BF3984") +
+  labs(x = "Wind speed (MPH)", y = "Predicted high temperature (F)") +
+  theme_minimal()
+```
+
+Si nous voulons voir quelle est la pente de cette ligne lorsque la vitesse du vent est de 2, 4 et 6, nous pouvons utiliser `marginaleffects()` :
+
+```{r show-mfx}
+marginaleffects(model_complex, 
+                newdata = datagrid(windSpeed = c(2, 4, 6)), 
+                variables = "windSpeed") %>%
+  # This creates a ton of extra columns so we'll just look at a few
+  select(term, windSpeed, dydx, std.error, statistic, p.value, conf.low, conf.high)
+```
+
+La colonne `dydx` ici montre que la pente à chacune de ces valeurs de `windSpeed` est de -1,8, ce qui signifie qu'une augmentation de 1 MPH de la vitesse du vent est associée à une diminution de près de 2 ° de la température élevée prévue, en moyenne. Ce n'est pas super excitant cependant, puisque les valeurs prédites créent une belle ligne droite, avec la même pente sur toute la plage de la ligne. C'est également le même nombre que nous obtenons du coefficient du modèle. Exécutez `tidy(model_complex)` et vous verrez que le coefficient de `windSpeed` est de -1,78. Comme tout est linéaire ici, l'utilisation de `marginaleffects()` n'est pas si importante.
+
+Pour plus de plaisir et d'excitation, créons un modèle encore plus complexe avec des courbes non linéaires et des termes d'interaction. Nous inclurons à la fois la vitesse du vent et la vitesse du vent au carré (puisque peut-être que des vitesses de vent plus élevées ont un effet plus important sur les températures prévues), et l'interaction entre la vitesse du vent et la couverture nuageuse (puisque peut-être que la température se comporte différemment selon différentes combinaisons de vitesse du vent et de couverture nuageuse ). Encore une fois, je ne suis pas météorologue, donc ce modèle est *définitivement faux*, mais il nous donne quelques trucs sympas avec lesquelles nous pouvons jouer.
+
+```{r wild-model}
+# Créer un modèle
+# Nous mettons windSpeed au carré avec I(windSpeed^2). La fonction I() vous permet de faire des calculs
+# avec des termes de régression.
+# On fait un terme d'interaction avec *
+model_wild <- lm(temperatureHigh ~ humidity_scaled + moonPhase_scaled + 
+                   precipProbability_scaled + windSpeed + I(windSpeed^2) + 
+                   pressure + cloudCover_scaled + (windSpeed * cloudCover_scaled),
+                 data = weather_atl_summer)
+
+tidy(model_wild)
+```
+
+Nous avons maintenant de nouveaux coefficients de régression étranges. Nous avons deux coefficients pour la vitesse du vent : "windSpeed" et "I(windSpeed^2)". Nous avons également un coefficient pour le terme d'interaction `windspeed:cloudCover_scaled`. **Nous ne pouvons pas les interpréter individuellement**. Si nous voulons connaître l'effet de la vitesse du vent sur les températures élevées, nous devons incorporer simultanément ces trois nouveaux coefficients. Heureusement, `predictions()` et `marginaleffects()` gèrent cela automatiquement pour nous.
+
+Traçons les prédictions pour voir que tout est plus sinueux maintenant (et courbé différemment selon les différents niveaux de couverture nuageuse).
+
+```{r mfx-predictions-wild, fig.width=9, fig.height=4}
+predicted_values_wild <- predictions(
+  model_wild, 
+  newdata = datagrid(windSpeed = seq(0, 8, 0.5),
+                     cloudCover_scaled = c(0, 33, 66, 100))) %>%
+# Faire de la couverture nuageuse une variable catégorique afin que nous puissions la facetter
+  mutate(cloudCover_scaled = factor(cloudCover_scaled))
+
+ggplot(predicted_values_wild, aes(x = windSpeed, y = predicted)) +
+  geom_ribbon(aes(ymin = conf.low, ymax = conf.high, fill = cloudCover_scaled),
+              alpha = 0.5) + 
+  geom_line(aes(color = cloudCover_scaled), size = 1) +
+  labs(x = "Wind speed (MPH)", y = "Predicted high temperature (F)") +
+  theme_minimal() +
+  guides(fill = "none", color = "none") +
+  facet_wrap(vars(cloudCover_scaled), nrow = 1)
+```
+
+C'est chouette ! À tous les différents niveaux de couverture nuageuse, la tendance de la vitesse du vent est assez faible (et même assez plate lorsque la couverture nuageuse est de 0 ou 33) à de faibles niveaux de vitesse du vent. La ligne baisse assez rapidement à mesure que la vitesse du vent augmente. Obtenons des chiffres exacts avec `marginaleffects()` :
+
+```{r show-mfx-wild}
+marginaleffects(model_wild, 
+                newdata = datagrid(windSpeed = c(2, 4, 6),
+                                   cloudCover_scaled = c(0, 33, 66, 100)), 
+                variables = "windSpeed") %>%
+  # This creates a ton of extra columns so we'll just look at a few
+  select(term, windSpeed, cloudCover_scaled, dydx, std.error, 
+         statistic, p.value, conf.low, conf.high)
+```
+
+Ouf, nous avons 12 pistes différentes ici. Parlons de quelques-uns d'entre eux pour avoir l'intuition. Si la couverture nuageuse est de 0 et la vitesse du vent est de 2 MPH, le passage de 2 à 3 MPH est associé à une diminution de -0,68° de la température maximale en moyenne (voir la colonne « dydx » dans la première ligne du tableau). Si la vitesse du vent existante est de 6 MPH, le passage de 6 à 7 est associé à une diminution de -2,27° de la température maximale en moyenne (voir la colonne "dydx" dans la 9e ligne du tableau). La pente est plus raide et plus négative lorsque le vent est plus rapide, donc les changements de température sont plus importants. Parce que nous avons une interaction avec la couverture nuageuse, la pente change également à différents niveaux de couverture nuageuse. À 2 MPH de vent, la pente est de -0,68° lorsque la couverture nuageuse est de 0 (première rangée), mais de -1,37° lorsque la couverture nuageuse est de 100 (4e rangée).
+
+Enfin, nous pouvons visualiser comment ces pentes changent en fonction de la vitesse du vent et de la couverture nuageuse en les traçant :
+
+```{r plot-mfx-slopes-wild, fig.width=9, fig.height=4.5}
+slopes_wild <- marginaleffects(
+  model_wild, 
+  newdata = datagrid(windSpeed = seq(0, 6, by = 0.1),
+                     cloudCover_scaled = c(0, 33, 66, 100)), 
+  variables = "windSpeed") %>%
+  mutate(cloudCover_scaled = factor(cloudCover_scaled))
+
+ggplot(slopes_wild, aes(x = windSpeed, y = dydx)) +
+  geom_ribbon(aes(ymin = conf.low, ymax = conf.high, fill = cloudCover_scaled),
+              alpha = 0.5) +
+  geom_line(aes(color = cloudCover_scaled), size = 1) +
+  labs(x = "Wind speed (MPH)", y = "Slope (marginal effect) of wind speed",
+       title = "Marginal effect of wind speed across levels of cloud cover",
+       subtitle = "These are *slopes*, not predicted values") +
+  theme_minimal() +
+  guides(fill = "none", color = "none") +
+  facet_wrap(vars(cloudCover_scaled), nrow = 1)
+```

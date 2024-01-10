@@ -1,0 +1,6 @@
+"0","library(GGally)"
+"0",""
+"0","weather_correlations <- weather_atl %>% "
+"0","  select(temperatureHigh, temperatureLow, humidity, windSpeed, precipProbability)"
+"0",""
+"0","ggpairs(weather_correlations)"

@@ -1,0 +1,4 @@
+"0","model_complex <- lm(temperatureHigh ~ humidity_scaled + moonPhase_scaled + "
+"0","                      precipProbability_scaled + windSpeed + pressure + cloudCover_scaled,"
+"0","                    data = weather_atl_summer)"
+"0","tidy(model_complex, conf.int = TRUE)"

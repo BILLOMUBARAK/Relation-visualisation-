@@ -1,0 +1,6 @@
+"0","ggplot(weather_atl, aes(x = time, y = temperatureHigh)) +"
+"0","  geom_line() +"
+"0","  scale_y_continuous(sec.axis = sec_axis(trans = ~ (. - 32) * 5/9 + 273.15,"
+"0","                                         name = ""Kelvin"")) +"
+"0","  labs(x = NULL, y = ""Fahrenheit"") +"
+"0","  theme_minimal()"
